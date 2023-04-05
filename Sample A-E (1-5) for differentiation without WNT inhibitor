@@ -1,0 +1,464 @@
+library(Seurat)
+library(SeuratData)
+library(cowplot)
+library(patchwork)
+library(ggplot2)
+library(dplyr)
+library("BiocFileCache")
+library("writexl")
+library(viridis)
+library(RColorBrewer)
+library(EnhancedVolcano)
+library(plotly)
+
+library(monocle)
+library(reshape2)
+require(gridExtra)
+
+
+
+#===============Reading Data and Create Seurat Objects ==================
+#SA = Sample A, SB = Sample B, SC = Sample C...
+
+Data_A <- Read10X(
+  data.dir = "directory of Sample A/",
+  gene.column = 2,
+  cell.column = 1,
+  unique.features = TRUE,
+  strip.suffix = FALSE
+)
+
+Seurat_A = CreateSeuratObject(counts = Data_A, project = "SA")
+
+Data_B <- Read10X(
+  data.dir = "directory of Sample B/",
+  gene.column = 2,
+  cell.column = 1,
+  unique.features = TRUE,
+  strip.suffix = FALSE
+)
+
+Seurat_B = CreateSeuratObject(counts = Data_B, project = "SB")
+
+Data_C <- Read10X(
+    data.dir = "directory of Sample C/",
+  gene.column = 2,
+  cell.column = 1,
+  unique.features = TRUE,
+  strip.suffix = FALSE
+)
+
+Seurat_C = CreateSeuratObject(counts = Data_C, project = "SC")
+
+Data_D <- Read10X(
+    data.dir = "directory of Sample D/",
+  gene.column = 2,
+  cell.column = 1,
+  unique.features = TRUE,
+  strip.suffix = FALSE
+)
+
+Seurat_D = CreateSeuratObject(counts = Data_D, project = "SD")
+
+Data_E <- Read10X(
+    data.dir = "directory of Sample E/",
+  gene.column = 2,
+  cell.column = 1,
+  unique.features = TRUE,
+  strip.suffix = FALSE
+)
+
+Seurat_E = CreateSeuratObject(counts = Data_E, project = "SE")
+
+
+# ==============Quality Control (QC) for each Seurat==========
+Seurat_A[["percent.mt"]] <- PercentageFeatureSet(Seurat_A, pattern = "^MT-")
+p0_QC_A1 <- VlnPlot(Seurat_A, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+p0_QC_A2 <- FeatureScatter(Seurat_A, feature1 = "nCount_RNA", feature2 = "percent.mt")
+p0_QC_A3 <- FeatureScatter(Seurat_A, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+
+Seurat_B[["percent.mt"]] <- PercentageFeatureSet(Seurat_B, pattern = "^MT-")
+p0_QC_B1 <- VlnPlot(Seurat_B, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+p0_QC_B2 <- FeatureScatter(Seurat_B, feature1 = "nCount_RNA", feature2 = "percent.mt")
+p0_QC_B3 <- FeatureScatter(Seurat_B, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+
+Seurat_C[["percent.mt"]] <- PercentageFeatureSet(Seurat_C, pattern = "^MT-")
+p0_QC_C1 <- VlnPlot(Seurat_C, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+p0_QC_C2 <- FeatureScatter(Seurat_C, feature1 = "nCount_RNA", feature2 = "percent.mt")
+p0_QC_C3 <- FeatureScatter(Seurat_C, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+
+Seurat_D[["percent.mt"]] <- PercentageFeatureSet(Seurat_D, pattern = "^MT-")
+p0_QC_D1 <- VlnPlot(Seurat_D, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+p0_QC_D2 <- FeatureScatter(Seurat_D, feature1 = "nCount_RNA", feature2 = "percent.mt")
+p0_QC_D3 <- FeatureScatter(Seurat_D, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+
+Seurat_E[["percent.mt"]] <- PercentageFeatureSet(Seurat_E, pattern = "^MT-")
+p0_QC_E1 <- VlnPlot(Seurat_E, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+p0_QC_E2 <- FeatureScatter(Seurat_E, feature1 = "nCount_RNA", feature2 = "percent.mt")
+p0_QC_E3 <- FeatureScatter(Seurat_E, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+
+Seurat_A_QC <- subset(Seurat_A, subset = nFeature_RNA > 200 & nFeature_RNA < 8000 & percent.mt < 20)
+Seurat_B_QC <- subset(Seurat_B, subset = nFeature_RNA > 200 & nFeature_RNA < 8000 & percent.mt < 20)
+Seurat_C_QC <- subset(Seurat_C, subset = nFeature_RNA > 200 & nFeature_RNA < 8000 & percent.mt < 20)
+Seurat_D_QC <- subset(Seurat_D, subset = nFeature_RNA > 200 & nFeature_RNA < 8000 & percent.mt < 20)
+Seurat_E_QC <- subset(Seurat_E, subset = nFeature_RNA > 200 & nFeature_RNA < 8000 & percent.mt < 20)
+
+#=============Combine ALL Seurat Objects==============
+
+Seurat_All_QC <- c(Seurat_A_QC, Seurat_B_QC, Seurat_C_QC, Seurat_D_QC, Seurat_E_QC)
+
+Seurat_All_QC <- lapply(X = Seurat_All_QC, FUN = function(x) {
+  x <- NormalizeData(x)
+  x <- FindVariableFeatures(x, selection.method = "vst", nfeatures = 6000)
+})
+
+
+#==============Integrating and Anchoring Seurat Objects==============
+features <- SelectIntegrationFeatures(object.list = Seurat_All_QC)
+Data.anchors <- FindIntegrationAnchors(object.list = Seurat_All_QC, anchor.features = features)
+Data.int <- IntegrateData(anchorset = Data.anchors)
+DefaultAssay(Data.Int) <- "integrated"
+
+
+#==========Data Analysis: UMAP and Finding Clusters==============
+Data.int2 <- ScaleData(Data.int, verbose = FALSE)
+Data.int2 <- RunPCA(Data.int2, npcs = 50, verbose = FALSE)
+Data.int2 <- RunUMAP(Data.int2, reduction = "pca", dims = 1:10)
+
+p2a <- DimPlot(Data.int2, reduction = "umap", pt.size = 0.2, label.size = 20) + theme(aspect.ratio = "1")
+
+Data.int3 <- FindNeighbors(Data.int2, dims = 1:10)
+Data.int3 <- FindClusters(Data.int3, resolution = 0.5)
+Data.int3 <- RunUMAP(Data.int3, reduction = "pca", dims = 1:10)
+
+p2b <- DimPlot(Data.int3, reduction = "umap", pt.size = 0.2, label.size = 20) + theme(aspect.ratio = "1")
+p2c <- DimPlot(Data.int3, reduction = "umap", pt.size = 0.2, label.size = 20, split.by = "orig.ident") + theme(aspect.ratio = "1")
+
+Data.int3$ClusterNumber <- Idents(Data.int3)
+Idents(Data.int3) <- "orig.ident"
+Data.int3$SampleNumber <- Idents(Data.int3)
+Idents(Data.int3) <- "ClusterNumber"
+
+
+data <- as(Data.int3@assays$RNA@data, 'sparseMatrix')
+pd <- new('AnnotatedDataFrame', data = Data.int3@meta.data)
+fData <- data.frame(gene_short_name = row.names(data), row.names = row.names(data))
+fd <- new('AnnotatedDataFrame', data = fData)
+
+#Dual marker feature plot
+
+p5a <- FeaturePlot(Data.int3, features = c("TNMD", "SCX"),  blend = TRUE, blend.threshold = 0.1,
+            label = FALSE,  order = TRUE, cols = c("black", "red", "blue"), split.by = "orig.ident",   pt.size = 0.1, coord.fixed = TRUE)    + coord_fixed(ratio=1)
+p5b <- FeaturePlot(Data.int3, features = c("SCX", "COL1A1"),  blend = TRUE, blend.threshold = 0.1,
+                   label = FALSE,  order = TRUE, cols = c("black", "red", "blue"), split.by = "orig.ident",   pt.size = 0.1, coord.fixed = TRUE)    + coord_fixed(ratio=1)
+p5c <- FeaturePlot(Data.int3, features = c("TNMD", "COL1A1"),  blend = TRUE, blend.threshold = 0.1,
+                   label = FALSE,  order = TRUE, cols = c("black", "red", "blue"), split.by = "orig.ident",   pt.size = 0.1, coord.fixed = TRUE)    + coord_fixed(ratio=1)
+# Dotplot
+levels(Data.int3) <- c("SE", "SD", "SC", "SB", "SA")
+
+p6a <- 
+  DotPlot(Data.int3, assay = "RNA" , features = 
+            c("POU5F1", "NANOG", "LIN28A", "SOX2", 
+              "MIXL1", "TBXT", "MSGN1", "DLL1", "DLL3", "TBX6", "MEST", 
+             "PAX3", 
+             "PAX9","PAX1", "SOX9",
+              "PDGFRA",  "SCX", "MKX", "TNMD",  "COL1A1", "COL3A1",  "DCN", "BGN",  "FN1" )) + RotatedAxis() 
+
+
+#===========Trajectory Analysis 1=============
+
+#Construct monocle cds
+monocle_cds <- newCellDataSet(data, 
+                              phenoData = pd,
+                              featureData = fd,
+                              lowerDetectionLimit = 0.5,
+                              expressionFamily =negbinomial.size())
+
+monocle_cds <- estimateSizeFactors(monocle_cds)
+monocle_cds <- estimateDispersions(monocle_cds)
+
+#Filter low-quality cells
+monocle_cds <- detectGenes(monocle_cds, min_expr = 0.1)
+
+print(head(fData(monocle_cds)))
+expressed_genes <- row.names(subset(fData(monocle_cds),
+                                    num_cells_expressed >= 10))
+print(head(pData(monocle_cds)))
+
+
+pData(monocle_cds)$Total_mRNAs <- Matrix::colSums(exprs(monocle_cds))
+
+monocle_cds <- monocle_cds[,pData(monocle_cds)$Total_mRNAs < 1e6]
+
+upper_bound <- 10^(mean(log10(pData(monocle_cds)$Total_mRNAs)) +
+                     2*sd(log10(pData(monocle_cds)$Total_mRNAs)))
+lower_bound <- 10^(mean(log10(pData(monocle_cds)$Total_mRNAs)) -
+                     2*sd(log10(pData(monocle_cds)$Total_mRNAs)))
+
+qplot(Total_mRNAs, data = pData(monocle_cds), color = "CellTypes", geom =
+        "density") +
+  geom_vline(xintercept = lower_bound) +
+  geom_vline(xintercept = upper_bound)
+
+
+monocle_cds <- monocle_cds[,pData(monocle_cds)$Total_mRNAs > lower_bound &
+                             pData(monocle_cds)$Total_mRNAs < upper_bound]
+monocle_cds <- detectGenes(monocle_cds, min_expr = 0.1)
+
+
+# Log-transform each value in the expression matrix.
+L <- log(exprs(monocle_cds[expressed_genes,]))
+
+
+melted_dens_df <- melt(Matrix::t(scale(Matrix::t(L))))
+
+# Plot the distribution of the standardized gene expression values. (this not working, what is Value?)
+qplot(value, geom = "density", data = melted_dens_df) +
+  stat_function(fun = dnorm, size = 0.5, color = 'red') +
+  xlab("Standardized log(FPKM)") +
+  ylab("Density")
+#---------Cluster with top5 marker genes----------
+
+HIST1H1D_id <- row.names(subset(fData(monocle_cds), gene_short_name == "HIST1H1D"))
+HIST1H1B_id <- row.names(subset(fData(monocle_cds), gene_short_name == "HIST1H1B"))
+HIST1H4C_id <- row.names(subset(fData(monocle_cds), gene_short_name == "HIST1H4C"))
+TAGLN_id <- row.names(subset(fData(monocle_cds), gene_short_name == "TAGLN"))
+UBE2C_id <- row.names(subset(fData(monocle_cds), gene_short_name == "UBE2C"))
+TOP2A_id <- row.names(subset(fData(monocle_cds), gene_short_name == "TOP2A"))
+CENPF_id <- row.names(subset(fData(monocle_cds), gene_short_name == "CENPF"))
+DKK1_id <- row.names(subset(fData(monocle_cds), gene_short_name == "DKK1"))
+COLEC12_id <- row.names(subset(fData(monocle_cds), gene_short_name == "COLEC12"))
+PAX3_id <- row.names(subset(fData(monocle_cds), gene_short_name == "PAX3"))
+MYL9_id <- row.names(subset(fData(monocle_cds), gene_short_name == "MYL9"))
+MYL6_id <- row.names(subset(fData(monocle_cds), gene_short_name == "MYL6"))
+TPM1_id <- row.names(subset(fData(monocle_cds), gene_short_name == "TPM1"))
+GREM1_id <- row.names(subset(fData(monocle_cds), gene_short_name == "GREM1"))
+FGF17_id <- row.names(subset(fData(monocle_cds), gene_short_name == "FGF17"))
+FGF8_id <- row.names(subset(fData(monocle_cds), gene_short_name == "FGF8"))
+FTH1_id <- row.names(subset(fData(monocle_cds), gene_short_name == "FTH1"))
+FTL_id <- row.names(subset(fData(monocle_cds), gene_short_name == "FTL"))
+LIX1_id <- row.names(subset(fData(monocle_cds), gene_short_name == "LIX1"))
+NRN1_id <- row.names(subset(fData(monocle_cds), gene_short_name == "NRN1"))
+ONECUT2_id <- row.names(subset(fData(monocle_cds), gene_short_name == "ONECUT2"))
+FMN1_id <- row.names(subset(fData(monocle_cds), gene_short_name == "FMN1"))
+
+
+cth <- newCellTypeHierarchy()
+cth <- addCellType(cth, "C0", classify_func = function(x) { 
+  
+  x[HIST1H1D_id,] >= 1 &
+  x[HIST1H1B_id,] >= 1 &
+  x[HIST1H4C_id,] >= 1 
+}
+)
+
+
+
+cth <- addCellType(cth, "C1", classify_func = function(x) {
+  
+  x[TAGLN_id,] < 1 &
+  x[HIST1H1B_id,] < 1 &
+  x[UBE2C_id,] < 1 
+}
+)
+
+
+cth <- addCellType(cth, "C2", classify_func = function(x) {
+  
+  x[UBE2C_id,] >= 1  &
+  x[TOP2A_id,] >= 1  &
+  x[CENPF_id,] >= 1 
+}
+)
+
+cth <- addCellType(cth, "C3", classify_func = function(x) {
+  
+  x[TAGLN_id,] >= 1  &
+  x[TOP2A_id,] < 1  &
+  x[CENPF_id,] < 1 
+}
+)
+
+
+cth <- addCellType(cth, "C4", classify_func = function(x) {
+  
+  x[HIST1H1B_id,] < 1  &
+  x[TOP2A_id,] < 1  &
+  x[CENPF_id,] < 1 
+  
+}
+)
+
+
+
+cth <- addCellType(cth, "C5", classify_func = function(x) {
+  
+  x[DKK1_id,] >= 1  &
+    x[COLEC12_id,] >= 1  &
+    x[PAX3_id,] < 1 
+  
+}
+)
+
+cth <- addCellType(cth, "C6", classify_func = function(x) {
+  
+  x[TAGLN_id,] >= 1  &
+    x[MYL9_id,] >= 1  &
+    x[MYL6_id,] >= 1 
+  
+}
+)
+
+
+cth <- addCellType(cth, "C7", classify_func = function(x) {
+  
+  x[TPM1_id,] >= 1  &
+    x[TAGLN_id,] >= 1  &
+    x[GREM1_id,] >= 1 
+  
+}
+)
+
+
+cth <- addCellType(cth, "C8", classify_func = function(x) {
+  
+  x[HIST1H1B_id,] <1  &
+    x[FGF17_id,] < 1  &
+    x[FGF8_id,] < 1 
+  
+}
+)
+
+
+cth <- addCellType(cth, "C9", classify_func = function(x) {
+  
+  x[FTH1_id,] <1  &
+    x[FTL_id,] < 1  &
+    x[LIX1_id,] < 1 
+  
+}
+)
+
+cth <- addCellType(cth, "C10", classify_func = function(x) {
+  
+  x[NRN1_id,] >=1  &
+    x[ONECUT2_id,] >= 1  &
+    x[FMN1_id,] >= 1 
+  
+}
+)
+
+
+
+monocle_cds <- classifyCells(monocle_cds, cth, 0.1)
+
+table(pData(monocle_cds)$CellType)
+
+
+#---------Cluster without marker genes----------
+disp_table <- dispersionTable(monocle_cds)
+
+unsup_clustering_genes <- subset(disp_table, mean_expression >= 0.1)
+
+monocle_cds <- setOrderingFilter(monocle_cds, unsup_clustering_genes$gene_id)
+
+monocle_cds <- reduceDimension(monocle_cds, max_components = 2, num_dim = 6,
+                        reduction_method = 'tSNE', verbose = T)
+monocle_cds <- clusterCells(monocle_cds, num_clusters = 2)
+
+
+
+#-----------Construct Trajectory---------
+
+diff_test_res <- differentialGeneTest(monocle_cds[expressed_genes,],
+                                      fullModelFormulaStr = "~CellType")
+ordering_genes <- row.names (subset(diff_test_res, qval < 0.01))
+
+monocle_cds <- setOrderingFilter(monocle_cds, ordering_genes)
+
+monocle_cds <- reduceDimension(monocle_cds, max_components = 2,
+                            method = 'DDRTree')
+memory.limit(size = 8000000000)
+p01 <- plot_cell_trajectory(monocle_cds, color_by = "CellType")
+p02 <- plot_cell_trajectory(monocle_cds, color_by = "Pseudotime")
+p03 <- plot_cell_trajectory(monocle_cds, color_by = "State")
+
+diff_test_res <- differentialGeneTest(monocle_cds,
+                                      fullModelFormulaStr = "~State")
+diff_test_res[,c("gene_short_name", "pval", "qval")]
+
+to_be_tested_1 <-
+  row.names(subset(fData(monocle_cds),
+                   gene_short_name %in% c("HES4", "SAMD11", "ISG15", "MXRA8", "SPSB1")))
+
+to_be_tested_2 <-
+  row.names(subset(fData(monocle_cds),
+                   gene_short_name %in% c("FBXO2", "NPPB", "PLOD1", "PDPN", "NBL1")))
+
+to_be_tested_all <-
+  row.names(subset(fData(monocle_cds),
+                   gene_short_name %in% c("HES4", "SAMD11", "ISG15", "MXRA8", "SPSB1", "FBXO2", "NPPB", "PLOD1", "PDPN", "NBL1")))
+
+monocle_cds_subset1 <- monocle_cds[to_be_tested_1,]
+monocle_cds_subset2 <- monocle_cds[to_be_tested_2,]
+monocle_cds_subset <- monocle_cds[to_be_tested_all,]
+
+
+t05a <- plot_genes_jitter(monocle_cds_subset1,
+                  grouping = "State", color_by = "State", plot_trend = TRUE)
+
+t05b <- plot_genes_jitter(monocle_cds_subset2,
+                  grouping = "State", color_by = "State", plot_trend = TRUE)
+monocle_cds$SampleNumber
+
+t06a <- plot_genes_jitter(monocle_cds_subset1,
+                  grouping = "State", color_by = "SampleNumber", plot_trend = TRUE)
+
+
+t06b <- plot_genes_jitter(monocle_cds_subset2,
+                          grouping = "State", color_by = "SampleNumber", plot_trend = TRUE)
+
+
+t07a <- plot_genes_branched_heatmap(monocle_cds_subset,
+                            branch_point = 1,
+                            cores = 1,
+                            use_gene_short_name = T,
+                            show_rownames = T)
+
+t07b <- plot_genes_branched_heatmap(monocle_cds_subset,
+                                    branch_point = 2,
+                                    cores = 1,
+                                    use_gene_short_name = T,
+                                    show_rownames = T)
+
+t07c <- plot_genes_branched_heatmap(monocle_cds_subset,
+                                    branch_point = 3,
+                                    cores = 1,
+                                    use_gene_short_name = T,
+                                    show_rownames = T)
+
+t08a <- plot_cell_trajectory(monocle_cds,  cell_size = 0.5, show_branch_points = FALSE,
+                     markers= c("SCX", "MKX", "TNMD", "NRN1",  "ONECUT2"), markers_linear = TRUE,
+                     use_color_gradient= TRUE ) + theme(aspect.ratio = 1)
+t08b <- plot_cell_trajectory(monocle_cds,  cell_size = 0.5, show_branch_points = FALSE,
+                             markers= c("SCX", "MKX", "TNMD", "NRN1",  "ONECUT2"), markers_linear = FALSE,
+                             use_color_gradient= TRUE ) + theme(aspect.ratio = 1)
+
+
+t09
+# Define a custom color scale
+my_colors <- c("#CCCCCC02", "pink", "red")  
+
+# Plot the cell trajectory with a custom color scale
+t09 <- plot_cell_trajectory(monocle_cds, markers_linear = TRUE,cell_size = 0.5,
+                     markers = c("SCX", "MKX", "TNMD", "NRN1",  "ONECUT2"), 
+                     use_color_gradient = TRUE) +
+  scale_color_gradientn(colours = my_colors,
+                        name = "gene expression",
+                        limits = c(0, 2),
+                        breaks = seq(0, 2, by = 0.5),
+                        labels = seq(0, 2, by = 0.5),
+                        oob = scales::squish, 
+                        na.value = "gray90")  + theme(aspect.ratio = 1)
+
+
