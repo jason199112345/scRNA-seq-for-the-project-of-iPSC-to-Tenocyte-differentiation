@@ -1,0 +1,490 @@
+library(Seurat)
+library(patchwork)
+library(dplyr)
+library(SeuratData)
+library(cowplot)
+library(patchwork)
+library(ggplot2)
+library(dplyr)
+library("BiocFileCache")
+library("writexl")
+library(viridis)
+library(RColorBrewer)
+library(EnhancedVolcano)
+library(plotly)
+library(scvelo)
+library(monocle3)
+
+
+#===============Reading Data and Create Seurat Objects ==================
+
+#007 iPSC cell lines have been differentiated following iPSCs > PSM > SCL > Somite > SYN > WNT, please note the SYN is the final stage, but SYN was then added WNT inhibitor and annotated as "WNT"
+#WNT is the treatment for optimization
+#83i Another iPSC cell lines (83i) have been treated with the same differentiation followed by adding WNT inhibitor, the data was annotated as "WNT.83i"
+
+iPSCs <- Read10X(
+  data.dir = "directory of Sample A/")
+iPSCs <- CreateSeuratObject(counts = iPSCs, project = "iPSCs", min.cells = 3, min.features = 200)
+iPSCs
+iPSCs[["percent.mt"]] <- PercentageFeatureSet(iPSCs, pattern = "^MT-")
+# Visualize QC metrics as a violin plot
+VlnPlot(iPSCs, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+plot1 <- FeatureScatter(iPSCs, feature1 = "nCount_RNA", feature2 = "percent.mt")
+plot1
+plot2 <- FeatureScatter(iPSCs, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+plot2
+plot1 + plot2
+iPSCs <- subset(iPSCs, subset = nFeature_RNA > 200 & nFeature_RNA < 8000 & percent.mt < 20)
+iPSCs <- NormalizeData(iPSCs)
+
+PSM <- Read10X(
+  data.dir = "directory of Sample B/")
+PSM <- CreateSeuratObject(counts = PSM, project = "PSM", min.cells = 3, min.features = 200)
+PSM
+PSM[["percent.mt"]] <- PercentageFeatureSet(PSM, pattern = "^MT-")
+# Visualize QC metrics as a violin plot
+VlnPlot(PSM, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+plot1 <- FeatureScatter(PSM, feature1 = "nCount_RNA", feature2 = "percent.mt")
+plot1
+plot2 <- FeatureScatter(PSM, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+plot2
+plot1 + plot2
+PSM <- subset(PSM, subset = nFeature_RNA > 200 & nFeature_RNA < 8000 & percent.mt < 20)
+PSM <- NormalizeData(PSM)
+
+SCL <- Read10X(
+  data.dir = "directory of Sample C/")
+SCL <- CreateSeuratObject(counts = SCL, project = "SCL", min.cells = 3, min.features = 200)
+SCL
+SCL[["percent.mt"]] <- PercentageFeatureSet(SCL, pattern = "^MT-")
+# Visualize QC metrics as a violin plot
+VlnPlot(SCL, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+plot1 <- FeatureScatter(SCL, feature1 = "nCount_RNA", feature2 = "percent.mt")
+plot1
+plot2 <- FeatureScatter(SCL, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+plot2
+plot1 + plot2
+SCL <- subset(SCL, subset = nFeature_RNA > 200 & nFeature_RNA < 8000 & percent.mt < 20)
+SCL <- NormalizeData(SCL)
+
+Somite <- Read10X(
+  data.dir = "directory of Sample D/")
+Somite <- CreateSeuratObject(counts = Somite, project = "Somite", min.cells = 3, min.features = 200)
+Somite
+Somite[["percent.mt"]] <- PercentageFeatureSet(Somite, pattern = "^MT-")
+# Visualize QC metrics as a violin plot
+VlnPlot(Somite, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+plot1 <- FeatureScatter(Somite, feature1 = "nCount_RNA", feature2 = "percent.mt")
+plot1
+plot2 <- FeatureScatter(Somite, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+plot2
+plot1 + plot2
+Somite <- subset(Somite, subset = nFeature_RNA > 200 & nFeature_RNA < 8000 & percent.mt < 20)
+Somite <- NormalizeData(Somite)
+
+SYN <- Read10X(
+  data.dir = "directory of Sample E/")
+SYN <- CreateSeuratObject(counts = SYN, project = "SYN", min.cells = 3, min.features = 200)
+SYN
+SYN[["percent.mt"]] <- PercentageFeatureSet(SYN, pattern = "^MT-")
+# Visualize QC metrics as a violin plot
+VlnPlot(SYN, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+plot1 <- FeatureScatter(SYN, feature1 = "nCount_RNA", feature2 = "percent.mt")
+plot1
+plot2 <- FeatureScatter(SYN, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+plot2
+plot1 + plot2
+SYN <- subset(SYN, subset = nFeature_RNA > 200 & nFeature_RNA < 8000 & percent.mt < 20)
+SYN <- NormalizeData(SYN)
+
+
+WNT <- Read10X(
+  data.dir = "directory of Sample F/")
+WNT <- CreateSeuratObject(counts = WNT, project = "WNT", min.cells = 3, min.features = 200)
+WNT
+WNT[["percent.mt"]] <- PercentageFeatureSet(WNT, pattern = "^MT-")
+# Visualize QC metrics as a violin plot
+VlnPlot(WNT, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+plot1 <- FeatureScatter(WNT, feature1 = "nCount_RNA", feature2 = "percent.mt")
+plot1
+plot2 <- FeatureScatter(WNT, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+plot2
+plot1 + plot2
+WNT <- subset(WNT, subset = nFeature_RNA > 200 & nFeature_RNA < 8000 & percent.mt < 20)
+WNT <- NormalizeData(WNT)
+
+
+WNT.83i <- Read10X(
+  data.dir = "directory of Sample G/")
+WNT.83i <- CreateSeuratObject(counts = WNT.83i, project = "WNT.83i", min.cells = 3, min.features = 200)
+WNT.83i
+WNT.83i[["percent.mt"]] <- PercentageFeatureSet(WNT.83i, pattern = "^MT-")
+# Visualize QC metrics as a violin plot
+VlnPlot(WNT.83i, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+plot1 <- FeatureScatter(WNT.83i, feature1 = "nCount_RNA", feature2 = "percent.mt")
+plot1
+plot2 <- FeatureScatter(WNT.83i, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+plot2
+plot1 + plot2
+WNT.83i <- subset(WNT.83i, subset = nFeature_RNA > 200 & nFeature_RNA < 8000 & percent.mt < 20)
+WNT.83i <- NormalizeData(WNT.83i)
+
+
+Data1 <- c(iPSCs, PSM, SCL, Somite, SYN, WNT, WNT.83i)
+
+Data1 <- lapply(X = Data1, FUN = function(x) {
+  x <- NormalizeData(x)
+  x <- FindVariableFeatures(x, selection.method = "vst", nfeatures = 6000)
+})
+#==============Integrating and Anchoring Seurat Objects==============
+features <- SelectIntegrationFeatures(object.list = Data1)
+Data1.anchors <- FindIntegrationAnchors(object.list = Data1, anchor.features = features)
+Data1.int <- IntegrateData(anchorset = Data1.anchors)
+DefaultAssay(Data1.int) <- "integrated"
+
+
+# Run the standard workflow for visualization and clustering
+Data1.int <- ScaleData(Data1.int, verbose = FALSE)
+Data1.int <- RunPCA(Data1.int, npcs = 30, verbose = FALSE)
+Data1.int <- RunUMAP(Data1.int, reduction = "pca", dims = 1:30)
+Data1.int <- FindNeighbors(Data1.int, reduction = "pca", dims = 1:30)
+Data1.int <- FindClusters(Data1.int, resolution = 0.5)
+
+# Visualization
+p1 <- DimPlot(Data1.int, reduction = "umap", split.by = "orig.ident") + theme(aspect.ratio = 1) 
+p1
+p1b <- DimPlot(Data1.int, reduction = "umap", split.by = "orig.ident", label = TRUE) + theme(aspect.ratio = 1) 
+p1b
+p2 <- DimPlot(Data1.int, reduction = "umap", label = TRUE, repel = TRUE)
+p2
+
+#Cell counts
+table(Data1.int$orig.ident, Data1.int$seurat_clusters)
+
+
+#Subset
+Idents(Data1.int) <- "orig.ident"
+Data1.int.main <- subset(x = Data1.int, idents = c("iPSCs", "PSM", "SCL", "Somite", "SYN"))
+Data1.int.mainandWNT <- subset(x = Data1.int, idents = c("iPSCs", "PSM", "SCL", "Somite", "SYN", "WNT"))
+Data1.int.83i <- subset(x = Data1.int, idents = c("WNT", "WNT.83i"))
+Data1.int.WNT <- subset(x = Data1.int, idents = c("SYN", "WNT"))
+
+
+#find markers
+Idents(Data1.int) <- "seurat_clusters"
+Idents(Data1.int.main) <- "seurat_clusters"
+Idents(Data1.int.mainandWNT) <- "seurat_clusters"
+Idents(Data1.int.83i) <- "seurat_clusters"
+Idents(Data1.int.WNT) <- "seurat_clusters"
+
+
+DefaultAssay(Data1.int.main) <- "RNA"
+DefaultAssay(Data1.int.WNT) <- "RNA"
+DefaultAssay(Data1.int.83i) <- "RNA"
+
+
+Markers.main.C0 <- FindMarkers(Data1.int.main, ident.1 = 0, min.pct = 0.25)
+Markers.main.C1 <- FindMarkers(Data1.int.main, ident.1 = 1, min.pct = 0.25)
+Markers.main.C2 <- FindMarkers(Data1.int.main, ident.1 = 2, min.pct = 0.25)
+Markers.main.C3 <- FindMarkers(Data1.int.main, ident.1 = 3, min.pct = 0.25)
+Markers.main.C4 <- FindMarkers(Data1.int.main, ident.1 = 4, min.pct = 0.25)
+Markers.main.C5 <- FindMarkers(Data1.int.main, ident.1 = 5, min.pct = 0.25)
+Markers.main.C6 <- FindMarkers(Data1.int.main, ident.1 = 6, min.pct = 0.25)
+Markers.main.C7 <- FindMarkers(Data1.int.main, ident.1 = 7, min.pct = 0.25)
+Markers.main.C8 <- FindMarkers(Data1.int.main, ident.1 = 8, min.pct = 0.25)
+Markers.main.C9 <- FindMarkers(Data1.int.main, ident.1 = 9, min.pct = 0.25)
+Markers.main.C10 <- FindMarkers(Data1.int.main, ident.1 = 10, min.pct = 0.25)
+Markers.main.C11 <- FindMarkers(Data1.int.main, ident.1 = 11, min.pct = 0.25)
+
+Markers.main.C9inWNT <- FindMarkers(Data1.int.WNT, ident.1 = 9, min.pct = 0.25)
+Markers.main.C10inWNT <- FindMarkers(Data1.int.WNT, ident.1 = 10, min.pct = 0.25)
+
+
+
+#Marker expression
+
+AverageExpression(
+  Data1.int,
+  assays = "RNA",
+  features = c("NANOG", "TBX6", "TBXT", "PAX9", "MKX", "CD24", "TNMD", "COL1A2", "DCN", "COL3A1", "SYP", "PCLO", "DCX", "NRN1"),
+  return.seurat = FALSE,
+  group.by = "seurat_clusters",
+  add.ident = NULL,
+  slot = "data",
+  verbose = TRUE
+)
+
+AverageExpression(
+  Data1.int,
+  assays = "RNA",
+  features = c("SCX", "MKX", "COL1A1", "COL3A1", "TNMD", "DCN", "TCN", "BGN", "FN1",
+               "TBXT", "TBX1", "DLL1", "MSGN1", "TBX6", "WNT3A", "MEOX1", "PAX3", "TCF15",
+               "CDX2", "MESP2", "PAX1", "PAX9", "NKX3.2", "FOXD3", "SOX4", "SOX9", "SOX10", "SNAI2", "SNAI1", "ERBB3", "NCAM1", "NGFR"),
+  return.seurat = FALSE,
+  group.by = "seurat_clusters",
+  add.ident = NULL,
+  slot = "data",
+  verbose = TRUE
+)
+
+FeaturePlot(Data1.int.main, features = c("NANOG", "TBX6", "TBXT"), 
+            label = FALSE,  order = TRUE, cols = brewer.pal(11, "PRGn"), split.by = "orig.ident",  pt.size = 0.3, coord.fixed = TRUE)   
+FeaturePlot(Data1.int.main, features = c("PAX9", "MKX", "CD24"), 
+            label = FALSE,  order = TRUE, cols = brewer.pal(11, "PRGn"), split.by = "orig.ident",  pt.size = 0.3, coord.fixed = TRUE)   
+
+FeaturePlot(Data1.int.mainandWNT, features = c("TNMD", "COL1A2", "DCN", "COL3A1"), 
+            label = FALSE,  order = TRUE, cols = brewer.pal(11, "PRGn"), split.by = "orig.ident",  pt.size = 0.3, coord.fixed = TRUE)   
+FeaturePlot(Data1.int.WNT, features = c("SYP", "PCLO", "DCX", "NRN1"), 
+            label = FALSE,  order = TRUE, cols = brewer.pal(11, "PRGn"), split.by = "orig.ident",  pt.size = 0.3, coord.fixed = TRUE)   
+
+
+
+
+#Blend feature plot
+FeaturePlot(Data1.int.mainandWNT, features = c("PDGFRA", "TPPP3"),  blend = TRUE, blend.threshold = 0.1,
+            label = FALSE,  order = TRUE, cols = c("black", "red", "blue"), split.by = "orig.ident",   pt.size = 1, coord.fixed = TRUE)    + coord_fixed(ratio=1)
+
+#New UMAP showing effects adding WNT inhibitor
+#Compare WNT inhibitor on 007 or 83i cell lines
+
+
+p1 <- DimPlot(Data1.int, reduction = "umap", split.by = "orig.ident") + theme(aspect.ratio = 1) 
+p1
+p1b <- DimPlot(Data1.int, reduction = "umap", split.by = "orig.ident", label = TRUE) + theme(aspect.ratio = 1) 
+p1b
+
+
+write.csv(Markers.main.C0,"C:/Users/JiangW2/Box/Box - Sheyn Lab/Projects/Ongoing projects/Somite differentiation/Single cell data/Output results/New outputs for workplace 2/Marker lists/C0.csv", 
+          row.names = TRUE)
+
+write.csv(Markers.main.C1,"C:/Users/JiangW2/Box/Box - Sheyn Lab/Projects/Ongoing projects/Somite differentiation/Single cell data/Output results/New outputs for workplace 2/Marker lists/C1.csv", 
+          row.names = TRUE)
+
+write.csv(Markers.main.C2,"C:/Users/JiangW2/Box/Box - Sheyn Lab/Projects/Ongoing projects/Somite differentiation/Single cell data/Output results/New outputs for workplace 2/Marker lists/C2.csv", 
+          row.names = TRUE)
+
+write.csv(Markers.main.C3,"C:/Users/JiangW2/Box/Box - Sheyn Lab/Projects/Ongoing projects/Somite differentiation/Single cell data/Output results/New outputs for workplace 2/Marker lists/C3.csv", 
+          row.names = TRUE)
+
+write.csv(Markers.main.C4,"C:/Users/JiangW2/Box/Box - Sheyn Lab/Projects/Ongoing projects/Somite differentiation/Single cell data/Output results/New outputs for workplace 2/Marker lists/C4.csv", 
+          row.names = TRUE)
+
+write.csv(Markers.main.C5,"C:/Users/JiangW2/Box/Box - Sheyn Lab/Projects/Ongoing projects/Somite differentiation/Single cell data/Output results/New outputs for workplace 2/Marker lists/C5.csv", 
+          row.names = TRUE)
+
+write.csv(Markers.main.C6,"C:/Users/JiangW2/Box/Box - Sheyn Lab/Projects/Ongoing projects/Somite differentiation/Single cell data/Output results/New outputs for workplace 2/Marker lists/C6.csv", 
+          row.names = TRUE)
+
+write.csv(Markers.main.C7,"C:/Users/JiangW2/Box/Box - Sheyn Lab/Projects/Ongoing projects/Somite differentiation/Single cell data/Output results/New outputs for workplace 2/Marker lists/C7.csv", 
+          row.names = TRUE)
+
+write.csv(Markers.main.C8,"C:/Users/JiangW2/Box/Box - Sheyn Lab/Projects/Ongoing projects/Somite differentiation/Single cell data/Output results/New outputs for workplace 2/Marker lists/C8.csv", 
+          row.names = TRUE)
+
+write.csv(Markers.main.C9,"C:/Users/JiangW2/Box/Box - Sheyn Lab/Projects/Ongoing projects/Somite differentiation/Single cell data/Output results/New outputs for workplace 2/Marker lists/C9.csv", 
+          row.names = TRUE)
+
+write.csv(Markers.main.C10,"C:/Users/JiangW2/Box/Box - Sheyn Lab/Projects/Ongoing projects/Somite differentiation/Single cell data/Output results/New outputs for workplace 2/Marker lists/C10.csv", 
+          row.names = TRUE)
+
+write.csv(Markers.main.C11,"C:/Users/JiangW2/Box/Box - Sheyn Lab/Projects/Ongoing projects/Somite differentiation/Single cell data/Output results/New outputs for workplace 2/Marker lists/C11.csv", 
+          row.names = TRUE)
+
+
+
+cluster1.markers <- FindMarkers(ABCDF.int, ident.1 = 1, min.pct = 0.25)
+head(cluster1.markers, n = 10)
+write.csv(cluster1.markers,"C:/Users/sheynj/Box/Box - Sheyn Lab/Projects/Ongoing projects/Somite differentiation/Single cell data/JS/SYN/WNTC1.csv", 
+          row.names = TRUE)
+cluster2.markers <- FindMarkers(ABCDF.int, ident.1 = 2, min.pct = 0.25)
+head(cluster2.markers, n = 10)
+write.csv(cluster2.markers,"C:/Users/sheynj/Box/Box - Sheyn Lab/Projects/Ongoing projects/Somite differentiation/Single cell data/JS/SYN/WNTC2.csv", 
+          row.names = TRUE)
+cluster3.markers <- FindMarkers(ABCDF.int, ident.1 = 3, min.pct = 0.25)
+head(cluster3.markers, n = 10)
+write.csv(cluster3.markers,"C:/Users/sheynj/Box/Box - Sheyn Lab/Projects/Ongoing projects/Somite differentiation/Single cell data/JS/SYN/WNTC3.csv", 
+          row.names = TRUE)
+cluster4.markers <- FindMarkers(ABCDF.int, ident.1 = 4, min.pct = 0.25)
+head(cluster4.markers, n = 10)
+write.csv(cluster4.markers,"C:/Users/sheynj/Box/Box - Sheyn Lab/Projects/Ongoing projects/Somite differentiation/Single cell data/JS/SYN/WNTC4.csv", 
+          row.names = TRUE)
+cluster5.markers <- FindMarkers(ABCDF.int, ident.1 = 5, min.pct = 0.25)
+head(cluster5.markers, n = 10)
+write.csv(cluster5.markers,"C:/Users/sheynj/Box/Box - Sheyn Lab/Projects/Ongoing projects/Somite differentiation/Single cell data/JS/SYN/WNTC5.csv", 
+          row.names = TRUE)
+cluster6.markers <- FindMarkers(ABCDF.int, ident.1 = 6, min.pct = 0.25)
+head(cluster6.markers, n = 10)
+write.csv(cluster6.markers,"C:/Users/sheynj/Box/Box - Sheyn Lab/Projects/Ongoing projects/Somite differentiation/Single cell data/JS/SYN/WNTC6.csv", 
+          row.names = TRUE)
+cluster7.markers <- FindMarkers(ABCDF.int, ident.1 = 7, min.pct = 0.25)
+head(cluster7.markers, n = 10)
+write.csv(cluster7.markers,"C:/Users/sheynj/Box/Box - Sheyn Lab/Projects/Ongoing projects/Somite differentiation/Single cell data/JS/SYN/WNTC7.csv", 
+          row.names = TRUE)
+cluster8.markers <- FindMarkers(ABCDF.int, ident.1 = 8, min.pct = 0.25)
+head(cluster8.markers, n = 10)
+write.csv(cluster8.markers,"C:/Users/sheynj/Box/Box - Sheyn Lab/Projects/Ongoing projects/Somite differentiation/Single cell data/JS/SYN/WNTC8.csv", 
+          row.names = TRUE)
+cluster9.markers <- FindMarkers(ABCDF.int, ident.1 = 9, min.pct = 0.25)
+head(cluster9.markers, n = 10)
+write.csv(cluster9.markers,"C:/Users/sheynj/Box/Box - Sheyn Lab/Projects/Ongoing projects/Somite differentiation/Single cell data/JS/SYN/WNTC9.csv", 
+          row.names = TRUE)
+cluster10.markers <- FindMarkers(ABCDF.int, ident.1 = 10, min.pct = 0.25)
+head(cluster10.markers, n = 10)
+write.csv(cluster10.markers,"C:/Users/sheynj/Box/Box - Sheyn Lab/Projects/Ongoing projects/Somite differentiation/Single cell data/JS/SYN/WNTC10.csv", 
+          row.names = TRUE)
+cluster11.markers <- FindMarkers(ABCDF.int, ident.1 = 11, min.pct = 0.25)
+head(cluster11.markers, n = 10)
+write.csv(cluster11.markers,"C:/Users/sheynj/Box/Box - Sheyn Lab/Projects/Ongoing projects/Somite differentiation/Single cell data/JS/SYN/WNTC11.csv", 
+          row.names = TRUE)
+
+DotPlot(Data1.int.WNT, features = c("TNMD", "DCN", "COL1A1", "COL1A2", "MKX", "SCX", "COL3A1", "POSTN", "FIBIN", "SPARC")) + RotatedAxis()
+
+VlnPlot(Data.int3, features = c("TNMD", "DCN", "COL1A1", "COL1A2", "MKX", "SCX", "COL3A1", "POSTN", "FIBIN", "SPARC"), split.by = "orig.ident")
+FeaturePlot(Data.int3, features = c("TNMD", "DCN", "COL1A1", "COL1A2", "MKX", "SCX", "COL3A1", "POSTN", "FIBIN", "SPARC"))
+FeaturePlot(IVD.bpands.integrated.NPC, features = c("IL6", "CXCL8", "IL1B"), 
+            label = FALSE,  order = TRUE, cols = brewer.pal(11, "PRGn"), split.by = "SampleType",  pt.size = 0.3, coord.fixed = TRUE)   
+
+
+# Dot plots - the size of the dot corresponds to the percentage of cells expressing the
+# feature in each cluster. The color represents the average expression level
+DotPlot(Data.int3, features = c("TNMD", "DCN", "COL1A1", "COL1A2", "MKX", "SCX", "COL3A1", "POSTN", "FIBIN", "SPARC")) + RotatedAxis()
+
+# Single cell heatmap of feature expression
+DoHeatmap(Data.int3, features = c("TNMD", "DCN", "COL1A1", "COL1A2", "MKX", "SCX", "COL3A1", "POSTN", "FIBIN", "SPARC"), size = 3)
+
+# Visualize co-expression of two features simultaneously
+FeaturePlot(Data.int3, features = c("DKK1", "MEST"), blend = TRUE)
+
+plot <- DimPlot(Data.int3, reduction = "pca") + NoLegend()
+LabelClusters(plot = plot, id = "ident")
+# Both functions support `repel`, which will intelligently stagger labels and draw connecting
+# lines from the labels to the points or clusters
+LabelPoints(plot = plot, points = TopCells(object = Data.int3[["pca"]]), repel = TRUE)
+
+plot1 <- DimPlot(Data.int3)
+plot2 <- FeatureScatter(Data.int3, feature1 = "DKK1", feature2 = "MEST")
+# Combine two plots
+plot1 + plot2
+
+
+FeaturePlot(Data.int3, features = c("NANOG", "POU5F1", "SOX2"), min.cutoff = "q9", split.by = "orig.ident")
+FeaturePlot(Data.int3, features = c("TBX6", "HES7"), min.cutoff = "q9", split.by = "orig.ident")
+FeaturePlot(Data.int3, features = c("PAX3", "MEOX1"), min.cutoff = "q9", split.by = "orig.ident")
+FeaturePlot(Data.int3, features = c("PAX1", "UNCX"), min.cutoff = "q9", split.by = "orig.ident")
+FeaturePlot(Data.int3, features = c("SCX", "COL1A2"), min.cutoff = "q9", split.by = "orig.ident")
+
+FeaturePlot(Data.int3, features = c("MSGN1", "WNT3A", "DLL1"), min.cutoff = "q9", split.by = "orig.ident")
+FeaturePlot(Data.int3, features = c("PAX9", "MKX", "TNMD", "PDGFRA", "EGR1"), min.cutoff = "q9", split.by = "orig.ident")
+FeaturePlot(Data.int3, features = c("DLL3", "CRABP1", "COL9A3", "COL3A1", "COL12A1", "POSTN", "FIBIN", "SPARC"), min.cutoff = "q9", split.by = "orig.ident")
+
+
+DotPlot(Data.int3, features =c("DLL3", "CRABP1", "COL9A3", "COL3A1", "COL12A1", "POSTN", "FIBIN", "SPARC"))
+DotPlot(Data.int3, features =c("NANOG", "POU5F1", "SOX2", "TBX6", "HES7", "PAX3", "MEOX1", "PAX1", "UNCX", "SCX", "COL1A2"))
+DotPlot(Data.int3, features = c("PAX9", "MKX", "TNMD", "PDGFRA", "EGR1", "MSGN1", "WNT3A", "DLL1"))
+
+
+#Dual marker feature plot
+
+p6a <- FeaturePlot(Data1.int.mainandWNT, features = c("TNMD", "SCX"),  blend = TRUE, blend.threshold = 0.1,
+                   label = FALSE,  order = TRUE, cols = c("black", "red", "blue"), split.by = "orig.ident",   pt.size = 0.2, coord.fixed = TRUE)    + coord_fixed(ratio=1)
+p6b <- FeaturePlot(Data1.int.mainandWNT, features = c("SCX", "COL1A1"),  blend = TRUE, blend.threshold = 0.1,
+                   label = FALSE,  order = TRUE, cols = c("black", "red", "blue"), split.by = "orig.ident",   pt.size = 0.2, coord.fixed = TRUE)    + coord_fixed(ratio=1)
+p6c <- FeaturePlot(Data1.int.mainandWNT, features = c("TNMD", "COL1A1"),  blend = TRUE, blend.threshold = 0.1,
+                   label = FALSE,  order = TRUE, cols = c("black", "red", "blue"), split.by = "orig.ident",   pt.size = 0.2, coord.fixed = TRUE)    + coord_fixed(ratio=1)
+# Dotplot
+
+Idents(Data1.int.WNT) <- "orig.ident"
+levels(Data1.int.WNT) <- c( "WNT", "SYN")
+
+p7a <- 
+  DotPlot(Data1.int.WNT, assay = "RNA" , features = 
+            c("POU5F1", "NANOG", "LIN28A", "SOX2", 
+               "MIXL1", "TBXT", "MSGN1", "DLL1", "DLL3", "TBX6", "MEST", 
+              "PAX3", 
+              "PAX9","PAX1", "SOX9",
+              "PDGFRA", "SCX", "MKX", "TNMD",  "COL1A1", "COL3A1",  "DCN", "BGN",  "FN1")) + RotatedAxis() 
+
+levels(Data1.int.main) <- c( "11", "10", "9", "8", "7", "6", "5", "4", "3", "2", "1", "0")
+levels(Data1.int.mainandWNT) <- c( "11", "10", "9", "8", "7", "6", "5", "4", "3", "2", "1", "0")
+
+
+p7b <- 
+  DotPlot(Data1.int.main, assay = "RNA" , features = 
+            c("POU5F1", "POU5F", "OCT4","NANOG", "LIN28A", "SOX2", 
+              "MIXL1", "TBXT", "WNT3A", "MSGN1", "DLL1", "DLL3", "TBX6", "MEST", 
+              "PAX3", "HAND1", "FOXF1",
+              "MEOX1", "FOX1C1", "FOXC2", "UNCX", "TBX18",  "PARAXIS", "TCF15",
+              "NKX3.2",
+              "PAX9","PAX1",
+              "PDGFRA",
+              "TPPP3",
+              "EGR1",
+              "SCX",
+              "MKX",
+              "TNMD",
+              "THBS4",
+              "COL1A1",
+              "COL3A1",
+              "DCN",
+              "BGN",
+              "FN1",
+              "SOX9",
+              "COL2A1",
+              "ACAN",
+              "DCX",
+              "MAP2",
+              "OTX1",
+              "PAX6",
+              "SOX4",
+              "SOX10",
+              "SNAI1",
+              "SNAI2",
+              "ERBB3",
+              "NCAM1",
+              "NGFR",
+              "FOXD3" )) + RotatedAxis() 
+
+p7c <- 
+  DotPlot(Data1.int.mainandWNT, assay = "RNA" , features = 
+            c("POU5F1", "POU5F", "OCT4","NANOG", "LIN28A", "SOX2", 
+              "MIXL1", "TBXT", "WNT3A", "MSGN1", "DLL1", "DLL3", "TBX6", "MEST", 
+              "PAX3", "HAND1", "FOXF1",
+              "MEOX1", "FOX1C1", "FOXC2", "UNCX", "TBX18",  "PARAXIS", "TCF15",
+              "NKX3.2",
+              "PAX9","PAX1",
+              "PDGFRA",
+              "TPPP3",
+              "EGR1",
+              "SCX",
+              "MKX",
+              "TNMD",
+              "THBS4",
+              "COL1A1",
+              "COL3A1",
+              "DCN",
+              "BGN",
+              "FN1",
+              "SOX9",
+              "COL2A1",
+              "ACAN",
+              "DCX",
+              "MAP2",
+              "OTX1",
+              "PAX6",
+              "SOX4",
+              "SOX10",
+              "SNAI1",
+              "SNAI2",
+              "ERBB3",
+              "NCAM1",
+              "NGFR",
+              "FOXD3" )) + RotatedAxis() 
+
+p8 <- DimPlot(Data1.int.83i, reduction = "umap", split.by = "orig.ident") + theme(aspect.ratio = 1) 
+p8
+
+
+
+
+
+
